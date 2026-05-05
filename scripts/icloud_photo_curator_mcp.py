@@ -24,6 +24,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - dependency bootstrap pa
 mcp = FastMCP("icloud-photo-curator")
 
 _api: Any | None = None
+_asset_cache: dict[tuple[str, str], Any] = {}  # (album_name, asset_id) -> asset
 
 SAFE_WRITE_CONFIRMATION = "I understand this will change my iCloud Photos albums"
 CODEX_REVIEW_MODE = "codex-native"
@@ -286,6 +287,7 @@ def _connect(
             }
         )
 
+    _asset_cache.clear()
     if password:
         _api = service_cls(username, password, **kwargs)
     else:
@@ -572,12 +574,22 @@ def _iter_album_assets(album: Any, skip: int = 0, limit: int = 25):
         yield index, asset
 
 
+def _cache_asset(album_name: str, asset: Any) -> None:
+    asset_id = getattr(asset, "id", None)
+    if asset_id:
+        _asset_cache[(album_name, asset_id)] = asset
+
+
 def _find_asset(album_name: str, asset_id: str, max_scan: int = 100_000) -> Any:
+    cached = _asset_cache.get((album_name, asset_id))
+    if cached is not None:
+        return cached
     api = _require_api()
     album = _album_by_name(api, album_name)
     for index, asset in enumerate(album):
         if index >= max_scan:
             break
+        _cache_asset(album_name, asset)
         if getattr(asset, "id", None) == asset_id:
             return asset
     raise KeyError(f"Asset '{asset_id}' was not found in album '{album_name}' within {max_scan} items.")
@@ -999,10 +1011,10 @@ def scan_album(
         album = _album_by_name(api, album_name)
         limit = max(1, min(int(limit), 250))
         skip = max(0, int(skip))
-        assets = [
-            _asset_metadata(asset, include_versions=include_versions)
-            for _, asset in _iter_album_assets(album, skip=skip, limit=limit)
-        ]
+        assets = []
+        for _, asset in _iter_album_assets(album, skip=skip, limit=limit):
+            _cache_asset(album_name, asset)
+            assets.append(_asset_metadata(asset, include_versions=include_versions))
         return {
             "album_name": album_name,
             "skip": skip,
@@ -1079,6 +1091,7 @@ def prepare_batch_for_codex(
         errors: list[dict[str, Any]] = []
 
         for index, asset in _iter_album_assets(album, skip=skip, limit=limit):
+            _cache_asset(album_name, asset)
             metadata = _asset_metadata(asset, include_versions=True)
             try:
                 download = _download_version(asset, version=version)
@@ -1227,6 +1240,7 @@ def curate_batch(
         errors: list[dict[str, Any]] = []
 
         for index, asset in _iter_album_assets(album, skip=skip, limit=limit):
+            _cache_asset(album_name, asset)
             metadata = _asset_metadata(asset, include_versions=True)
             try:
                 download = _download_version(asset, version=version)

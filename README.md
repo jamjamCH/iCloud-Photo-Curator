@@ -4,6 +4,9 @@
 [![python](https://img.shields.io/badge/python-3.10%2B-173A5E)](https://www.python.org/)
 [![mcp](https://img.shields.io/badge/MCP-stdio-2F6F9F)](https://modelcontextprotocol.io/)
 [![writes](https://img.shields.io/badge/iCloud_writes-experimental_gated-8A6D1D)](#safety-model)
+[![no deletions](https://img.shields.io/badge/photo_deletion-never-2D6A27)](#safety-model)
+[![dry run](https://img.shields.io/badge/writes-dry--run_by_default-5A3E8A)](#safety-model)
+[![tests](https://img.shields.io/badge/tests-pytest-4B8BBE)](tests/)
 [![license](https://img.shields.io/badge/license-MIT-3B7C3A)](LICENSE)
 
 *Deutsch: [README.de.md](README.de.md)*
@@ -116,14 +119,14 @@ Example rules:
 | Privacy | Do not infer real names from faces |
 | Uncertainty | Mark uncertain photos as `needs_review` |
 
-## Client Setup
+## Documentation
 
-| Client | Guide |
+| Document | Description |
 | --- | --- |
-| Codex Desktop | [docs/codex-local.md](docs/codex-local.md) |
-| Claude Desktop | [docs/claude-desktop.md](docs/claude-desktop.md) |
-| Manual CLI testing | [docs/cli.md](docs/cli.md) |
-| Security model | [docs/security.md](docs/security.md) |
+| [Codex Desktop setup](docs/codex-local.md) | Connect the plugin to Codex Desktop |
+| [Claude Desktop setup](docs/claude-desktop.md) | Connect the plugin to Claude Desktop |
+| [CLI reference](docs/cli.md) | Manual testing and scripting without a GUI client |
+| [Security model](docs/security.md) | Credential handling, write guards, and privacy notes |
 
 ## MCP Tools
 
