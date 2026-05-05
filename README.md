@@ -133,6 +133,9 @@ Example rules:
 | Tool | Purpose | iCloud write access |
 | --- | --- | --- |
 | `setup_check` | Shows config, Keyring, session, and dependency status | No |
+| `curation_workflow_guide` | Returns required workflow questions and available operating modes | No |
+| `get_curation_rules` | Reads the user's local album sorting rules | No |
+| `save_curation_rules` | Creates or updates local sorting rules | No |
 | `connect_icloud` | Starts an iCloud session from args, env, `.env`, or Keyring | No |
 | `validate_2fa_code` | Submits Apple 2FA and trusts the session when possible | No |
 | `list_albums` | Lists iCloud Photos albums | No |
@@ -140,9 +143,12 @@ Example rules:
 | `download_photo_version` | Caches one small version locally | No |
 | `prepare_photo_for_codex` | Prepares one preview for AI-client review | No |
 | `prepare_batch_for_codex` | Prepares a small batch for AI-client review | No |
+| `analyze_photo` | Runs metadata-based analysis and returns album recommendations | No |
+| `curate_batch` | Analyzes a batch and stores proposed album actions for review | No |
 | `save_codex_proposal` | Stores a local album decision | No |
 | `review_proposals` | Reviews saved proposals | No |
 | `mark_proposals_reviewed` | Approves or rejects proposals locally | No |
+| `export_proposals` | Exports stored proposals to JSON for backup or manual review | No |
 | `write_capabilities` | Shows supported write operations and required confirmations | No |
 | `create_album` | Dry-run or create one iCloud Photos album | Experimental gated |
 | `add_photo_to_album` | Dry-run or add one photo to one album | Experimental gated |

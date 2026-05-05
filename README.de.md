@@ -133,6 +133,9 @@ Beispielregeln:
 | Tool | Zweck | iCloud-Schreibzugriff |
 | --- | --- | --- |
 | `setup_check` | Zeigt Config, Keyring, Session und Dependencies | Nein |
+| `curation_workflow_guide` | Gibt benötigte Workflow-Fragen und verfügbare Modi zurück | Nein |
+| `get_curation_rules` | Liest die lokalen Album-Sortierregeln des Nutzers | Nein |
+| `save_curation_rules` | Erstellt oder aktualisiert lokale Sortierregeln | Nein |
 | `connect_icloud` | Startet eine iCloud-Session aus Args, Env, `.env` oder Keyring | Nein |
 | `validate_2fa_code` | Sendet Apple-2FA-Code und trusted Session, wenn möglich | Nein |
 | `list_albums` | Listet iCloud-Fotos-Alben | Nein |
@@ -140,9 +143,12 @@ Beispielregeln:
 | `download_photo_version` | Cached eine kleine Version lokal | Nein |
 | `prepare_photo_for_codex` | Bereitet ein Preview für KI-Review vor | Nein |
 | `prepare_batch_for_codex` | Bereitet einen kleinen Batch für KI-Review vor | Nein |
+| `analyze_photo` | Metadaten-basierte Analyse mit Album-Empfehlungen | Nein |
+| `curate_batch` | Analysiert einen Batch und speichert Vorschläge zur Prüfung | Nein |
 | `save_codex_proposal` | Speichert eine lokale Album-Entscheidung | Nein |
 | `review_proposals` | Zeigt gespeicherte Vorschläge | Nein |
 | `mark_proposals_reviewed` | Markiert Vorschläge lokal als approved/rejected | Nein |
+| `export_proposals` | Exportiert gespeicherte Vorschläge als JSON zur Sicherung | Nein |
 | `write_capabilities` | Zeigt unterstützte Writes und benötigte Bestätigungen | Nein |
 | `create_album` | Dry-Run oder ein iCloud-Fotos-Album erstellen | Experimentell abgesichert |
 | `add_photo_to_album` | Dry-Run oder ein Foto zu einem Album hinzufügen | Experimentell abgesichert |
