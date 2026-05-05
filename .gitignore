@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# Local iCloud Photo Curator state must never be committed.
+.icloud-photo-curator/
+curator.sqlite
+cache/
+session/
+
+# Local editor files.
+.vscode/
+.idea/

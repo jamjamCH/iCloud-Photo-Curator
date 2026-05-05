@@ -1,0 +1,21 @@
+[project]
+name = "icloud-photo-curator"
+version = "0.1.0"
+description = "MCP server for AI-assisted iCloud Photos curation with proposal review and gated album writes."
+requires-python = ">=3.10"
+dependencies = [
+  "mcp>=1.2.0",
+  "icloudpy>=0.8.0",
+  "keyring>=25.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.8.0"
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "icloud-photo-curator": {
+      "command": "/home/YOUR_NAME/plugins/icloud-photo-curator/.venv/bin/python",
+      "args": [
+        "/home/YOUR_NAME/plugins/icloud-photo-curator/scripts/icloud_photo_curator_mcp.py"
+      ],
+      "env": {
+        "ICLOUD_PHOTO_CURATOR_STATE_DIR": "/home/YOUR_NAME/.icloud-photo-curator"
+      }
+    }
+  }
+}

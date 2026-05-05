@@ -1,0 +1,48 @@
+{
+  "name": "icloud-photo-curator",
+  "version": "0.1.0",
+  "description": "A local MCP server and Codex plugin for safe, AI-assisted iCloud Photos curation with local proposal review and experimental gated album writes.",
+  "author": {
+    "name": "iCloud Photo Curator contributors",
+    "email": "security@example.invalid",
+    "url": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator"
+  },
+  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator",
+  "repository": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator",
+  "license": "MIT",
+  "keywords": [
+    "icloud",
+    "photos",
+    "mcp",
+    "codex",
+    "claude",
+    "album-curation"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "iCloud Photo Curator",
+    "shortDescription": "Curate iCloud Photos with local AI review, proposals, and gated album writes",
+    "longDescription": "iCloud Photo Curator connects to iCloud Photos through a local MCP server, reads albums, metadata, GPS fields, and small image versions, then lets Codex or another local MCP client review cached previews and save local album proposals. Album creation and adding photos to albums are available only through an experimental gated write mode that defaults to dry-run and requires explicit confirmation. The plugin does not implement deleting photos.",
+    "developerName": "iCloud Photo Curator contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write-Gated"
+    ],
+    "websiteURL": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator",
+    "privacyPolicyURL": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator/blob/main/docs/security.md",
+    "termsOfServiceURL": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator/blob/main/README.md#safety-model",
+    "defaultPrompt": [
+      "Scan my iCloud albums and summarize the structure",
+      "Prepare the next 10 iCloud photos for album review",
+      "Review saved iCloud photo organization proposals",
+      "Dry-run applying my approved iCloud photo album proposals"
+    ],
+    "brandColor": "#0B6E69",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/icon.svg",
+    "screenshots": []
+  }
+}
