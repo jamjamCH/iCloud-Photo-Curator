@@ -4,11 +4,10 @@
   "description": "A local MCP server and Codex plugin for safe, AI-assisted iCloud Photos curation with local proposal review and experimental gated album writes.",
   "author": {
     "name": "iCloud Photo Curator contributors",
-    "email": "security@example.invalid",
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator"
+    "url": "https://github.com/jamjamCH/iCloud-Photo-Curator"
   },
-  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator",
-  "repository": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator",
+  "homepage": "https://github.com/jamjamCH/iCloud-Photo-Curator",
+  "repository": "https://github.com/jamjamCH/iCloud-Photo-Curator",
   "license": "MIT",
   "keywords": [
     "icloud",
@@ -31,9 +30,9 @@
       "Read",
       "Write-Gated"
     ],
-    "websiteURL": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator",
-    "privacyPolicyURL": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator/blob/main/docs/security.md",
-    "termsOfServiceURL": "https://github.com/YOUR_GITHUB_USERNAME/icloud-photo-curator/blob/main/README.md#safety-model",
+    "websiteURL": "https://github.com/jamjamCH/iCloud-Photo-Curator",
+    "privacyPolicyURL": "https://github.com/jamjamCH/iCloud-Photo-Curator/blob/main/docs/security.md",
+    "termsOfServiceURL": "https://github.com/jamjamCH/iCloud-Photo-Curator/blob/main/README.md#safety-model",
     "defaultPrompt": [
       "Scan my iCloud albums and summarize the structure",
       "Prepare the next 10 iCloud photos for album review",
