@@ -15,6 +15,23 @@
 
 Es löscht keine Fotos. Alben erstellen und Fotos zu Alben hinzufügen ist nur über einen **experimentellen, abgesicherten Write-Modus** verfügbar, der standardmäßig als Dry-Run läuft und vor echten iCloud-Änderungen eine explizite Nutzerfreigabe verlangt.
 
+> **Neu hier?** Am einfachsten ist die Schritt-für-Schritt-Anleitung für deine App:
+> **[Claude Desktop](docs/claude-desktop.de.md)** · **[Codex Desktop](docs/codex-local.de.md)**. Ohne Programmieren.
+
+## In einfachen Worten
+
+Du sprichst ganz normal mit Claude oder Codex — *„Sortier meine letzten 10 iCloud-Fotos in Alben."* Die App schaut sich die echten Fotos an und schlägt Alben nach Inhalt vor: Essensfotos → ein **Food**-Album, ein in Paris aufgenommenes Urlaubsfoto → ein **Paris**-Album. Sie macht nur Vorschläge; deine Alben ändern sich erst nach deiner Zustimmung, und Fotos werden nie gelöscht.
+
+## Was du brauchst
+
+| Du brauchst | Hinweis |
+| --- | --- |
+| Python 3.10+ | [python.org](https://www.python.org/downloads/) — unter Windows „Add Python to PATH" anhaken |
+| Claude Desktop oder Codex Desktop | Die App, mit der du sprichst |
+| Eine Apple-ID | Die, auf der deine iCloud-Fotos liegen |
+| Diesen Projektordner | Auf GitHub **Code → Download ZIP**, dann entpacken |
+
+
 ## Überblick
 
 | Bereich | Aktuelles Verhalten |
@@ -72,26 +89,30 @@ Wenn GitHub den Ordner als `icloud-photo-curator-main` entpackt, benenne ihn in 
 
 ## Schnellstart
 
-Im Plugin-Ordner:
+Öffne ein Terminal **im Plugin-Ordner** und führe die Befehle für dein System aus. (Unter macOS/Linux `python3` nutzen, falls `python` nicht gefunden wird.)
 
+**Windows (PowerShell):**
 ```powershell
-python scripts/bootstrap.py
-python scripts/try_curator.py login
-python scripts/try_curator.py albums
-python scripts/try_curator.py prepare --album "All Photos" --limit 10 --version thumb
+python scripts\bootstrap.py
+python scripts\try_curator.py login
+python scripts\try_curator.py albums
 ```
 
-Unter Windows kannst du nach dem Bootstrap auch direkt die virtuelle Umgebung nutzen:
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\try_curator.py setup
-```
-
-Unter macOS oder Linux:
-
+**macOS / Linux:**
 ```bash
-./.venv/bin/python scripts/try_curator.py setup
+python3 scripts/bootstrap.py
+python3 scripts/try_curator.py login
+python3 scripts/try_curator.py albums
 ```
+
+Was zu erwarten ist:
+- `bootstrap.py` installiert alles in ein privates `.venv` und endet ohne roten Fehler.
+- `login` fragt nach Apple-ID, Passwort und einem Apple-2FA-Code; es endet mit `"logged_in": true`. Dein Passwort liegt im OS-Schlüsselbund, nie in einer Datei.
+- `albums` listet deine iCloud-Alben — der Beweis, dass die Verbindung steht.
+
+Verbinde den Server dann über die Schritt-für-Schritt-Anleitung ([Claude Desktop](docs/claude-desktop.de.md) / [Codex Desktop](docs/codex-local.de.md)) mit deiner App und frag einfach:
+
+> „Scanne meine iCloud-Alben und fasse sie zusammen."
 
 ## Lokale Config
 

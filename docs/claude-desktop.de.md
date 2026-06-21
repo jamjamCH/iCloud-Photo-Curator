@@ -117,6 +117,20 @@ Tippe Claude z. B. das hier:
 
 Claude fragt, ob du *nur scannen*, *scannen und vorschlagen* oder *genehmigte Änderungen anwenden* willst. Fang mit Scannen oder Vorschlagen an — in iCloud wird nichts geändert, bis du es sagst.
 
+## Einfacher: Ein-Klick-Installation (.mcpb, experimentell)
+
+Statt die Config in Schritt 3 von Hand zu bearbeiten, kannst du eine fertige Extension installieren. Das ist **experimentell**: Python muss trotzdem installiert sein, und beim ersten Start werden die Abhängigkeiten in einen privaten Arbeitsbereich geladen (der erste Start dauert daher kurz und braucht Internet).
+
+1. Hol dir die `.mcpb`-Datei — von der **Releases**-Seite des Projekts laden, oder selbst im Projektordner bauen:
+   - Windows: `python scripts\build_mcpb.py`
+   - macOS / Linux: `python3 scripts/build_mcpb.py`
+
+   Sie landet unter `dist/icloud-photo-curator-<version>.mcpb`.
+2. In Claude Desktop **Einstellungen → Erweiterungen** öffnen und die `.mcpb`-Datei hineinziehen (oder doppelklicken). Apple-ID eingeben, falls gefragt.
+3. Führe den einmaligen `login` (Schritt 2) trotzdem einmal aus, damit dein Passwort im OS-Schlüsselbund liegt.
+
+Wenn etwas hakt, nutze die manuelle Config aus Schritt 3 — das ist der zuverlässige Weg.
+
 ## Verbindet nicht? Schnelle Lösungen
 
 | Problem | Lösung |
