@@ -74,15 +74,20 @@ Nach dem Setup sollte Codex MCP-Tools aufrufen können:
 
 | Tool | Erwarteter Nutzen |
 | --- | --- |
-| `setup_check` | `.env`, Keyring, Session und Dependencies prüfen |
+| `setup_check` | `.env`, Keyring, Session, Dependencies und Geocoder prüfen |
 | `connect_icloud` | Session ohne Username/Passwort-Argumente öffnen |
 | `list_albums` | Bestehende Alben lesen |
-| `prepare_batch_for_codex` | Kleine Previews für Codex-Review cachen |
+| `prepare_batch_for_codex` | Batch als Bild-Blöcke + Metadaten/Ort zurückgeben, damit Codex sie sieht |
+| `get_photo_image` | Ein Foto als Bild-Block für präzises Inhalts-Review zurückgeben |
 | `save_codex_proposal` | Lokale Vorschläge speichern |
 | `write_capabilities` | Prüfen, ob experimentelle Writes aktiviert sind |
 | `create_album` | Dry-Run oder nach expliziter Freigabe ein Album erstellen |
 | `add_photo_to_album` | Dry-Run oder nach expliziter Freigabe ein Foto hinzufügen |
 | `apply_proposals` | Dry-Run oder genehmigte lokale Vorschläge anwenden |
+
+## Vision Und Ort
+
+`prepare_batch_for_codex` und `get_photo_image` geben die echten Fotos als MCP-Bild-Blöcke zurück, sodass Codex die Pixel sieht und nach sichtbarem Inhalt sortiert (Essen, Dokumente, Landschaften, …). GPS wird offline zu Stadt/Land aufgelöst, für ortsbasierte Alben. Optionalen Geocoder installieren: `pip install reverse_geocode` (bereits in `requirements.txt`).
 
 ## Sicherheit
 

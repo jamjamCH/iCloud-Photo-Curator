@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from mcp.server.fastmcp import FastMCP
+    from mcp.server.fastmcp import FastMCP, Image
 except ModuleNotFoundError as exc:  # pragma: no cover - dependency bootstrap path
     if "--self-test" in sys.argv:
         print("Missing dependency: install requirements.txt before running the MCP server.")
@@ -25,6 +25,11 @@ mcp = FastMCP("icloud-photo-curator")
 
 _api: Any | None = None
 _asset_cache: dict[tuple[str, str], Any] = {}  # (album_name, asset_id) -> asset
+_geocode_cache: dict[tuple[float, float], dict[str, Any] | None] = {}
+_GEOCODE_HINT = (
+    "Install the offline geocoder for location albums: pip install reverse_geocode "
+    "(or pip install -e \".[geo]\")."
+)
 
 SAFE_WRITE_CONFIRMATION = "I understand this will change my iCloud Photos albums"
 CODEX_REVIEW_MODE = "codex-native"
@@ -338,7 +343,9 @@ def _write_guard(
     return None
 
 
-def _modify_records(api: Any, operations: list[dict[str, Any]], desired_keys: list[str]) -> dict[str, Any]:
+def _modify_records(
+    api: Any, operations: list[dict[str, Any]], desired_keys: list[str]
+) -> dict[str, Any]:
     endpoint = api.photos._service_endpoint
     params = api.photos.params
     from urllib.parse import urlencode
@@ -513,6 +520,8 @@ def _asset_metadata(asset: Any, include_versions: bool = False) -> dict[str, Any
             return None
 
     caption = _decode_b64_text(_first_field(records, ["captionEnc", "extendedDescEnc"]))
+    latitude = _first_field(records, ["locationLatitude", "latitude"])
+    longitude = _first_field(records, ["locationLongitude", "longitude"])
     metadata: dict[str, Any] = {
         "asset_id": safe_attr("id") or master_record.get("recordName"),
         "asset_record_name": asset_record.get("recordName"),
@@ -524,9 +533,10 @@ def _asset_metadata(asset: Any, include_versions: bool = False) -> dict[str, Any
         "asset_date": safe_attr("asset_date"),
         "added_date": safe_attr("added_date"),
         "gps": {
-            "latitude": _first_field(records, ["locationLatitude", "latitude"]),
-            "longitude": _first_field(records, ["locationLongitude", "longitude"]),
+            "latitude": latitude,
+            "longitude": longitude,
         },
+        "location": _reverse_geocode(latitude, longitude),
         "flags": {
             "favorite": _first_field(records, ["isFavorite"], False),
             "hidden": _first_field(records, ["isHidden"], False),
@@ -592,7 +602,9 @@ def _find_asset(album_name: str, asset_id: str, max_scan: int = 100_000) -> Any:
         _cache_asset(album_name, asset)
         if getattr(asset, "id", None) == asset_id:
             return asset
-    raise KeyError(f"Asset '{asset_id}' was not found in album '{album_name}' within {max_scan} items.")
+    raise KeyError(
+        f"Asset '{asset_id}' was not found in album '{album_name}' within {max_scan} items."
+    )
 
 
 def _content_type_for(path: Path, fallback: str | None = None) -> str:
@@ -649,6 +661,68 @@ def _download_version(asset: Any, version: str = "thumb") -> dict[str, Any]:
     }
 
 
+def _to_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _reverse_geocode(latitude: Any, longitude: Any) -> dict[str, Any] | None:
+    """Resolve GPS coordinates to a city/state/country using an offline dataset.
+
+    Returns None when no coordinates are present. When the optional
+    ``reverse_geocode`` package is not installed it returns a small dict with
+    ``available: False`` and an install hint instead of raising, so the rest of
+    the workflow keeps working without location albums.
+    """
+    lat = _to_float(latitude)
+    lon = _to_float(longitude)
+    if lat is None or lon is None:
+        return None
+
+    key = (round(lat, 4), round(lon, 4))
+    if key in _geocode_cache:
+        return _geocode_cache[key]
+
+    try:
+        import reverse_geocode  # type: ignore
+    except ModuleNotFoundError:
+        return {"available": False, "hint": _GEOCODE_HINT}
+
+    try:
+        match = reverse_geocode.get((lat, lon))
+    except Exception as exc:  # pragma: no cover - dataset/runtime guard
+        result: dict[str, Any] | None = {
+            "available": False,
+            "error": _compact_error(exc)["message"],
+        }
+        _geocode_cache[key] = result
+        return result
+
+    place = {
+        "available": True,
+        "city": match.get("city"),
+        "state": match.get("state"),
+        "county": match.get("county"),
+        "country": match.get("country"),
+        "country_code": match.get("country_code"),
+    }
+    label_parts = [place["city"], place["state"], place["country"]]
+    place["label"] = ", ".join(part for part in label_parts if part)
+    _geocode_cache[key] = place
+    return place
+
+
+def _asset_image(asset: Any, version: str = "thumb") -> tuple[Image, dict[str, Any]]:
+    """Download a small version and wrap it as an MCP image block the client can see."""
+    download = _download_version(asset, version=version)
+    image = Image(path=download["path"])
+    return image, download
+
+
 def _existing_album_names(api: Any, limit: int = 200) -> list[str]:
     albums = sorted(str(name) for name in api.photos.albums.keys())
     return albums[: max(0, limit)]
@@ -677,7 +751,11 @@ def _metadata_only_analysis(metadata: dict[str, Any], existing_albums: list[str]
         match_album(["screenshot", "screenshots"], 0.86, "Filename looks like a screenshot.")
         if not suggested_existing:
             new_album_suggestions.append(
-                {"name": "Screenshots", "confidence": 0.72, "reason": "Filename looks like a screenshot."}
+                {
+                    "name": "Screenshots",
+                    "confidence": 0.72,
+                    "reason": "Filename looks like a screenshot.",
+                }
             )
 
     if media.get("duration"):
@@ -690,13 +768,37 @@ def _metadata_only_analysis(metadata: dict[str, Any], existing_albums: list[str]
 
     if gps.get("latitude") is not None and gps.get("longitude") is not None:
         labels.append("gps-tagged")
-        new_album_suggestions.append(
-            {
-                "name": "Location Review",
-                "confidence": 0.5,
-                "reason": "GPS coordinates exist, but no reverse geocoder is configured yet.",
-            }
-        )
+        location = metadata.get("location") or {}
+        if location.get("available"):
+            for place_field, confidence in (("city", 0.78), ("country", 0.6)):
+                place_name = location.get(place_field)
+                if place_name:
+                    labels.append(f"place:{place_name}")
+                    match_album(
+                        [place_name.lower()],
+                        confidence,
+                        f"GPS resolves to {location.get('label') or place_name}.",
+                    )
+                    if not suggested_existing:
+                        new_album_suggestions.append(
+                            {
+                                "name": place_name,
+                                "confidence": confidence,
+                                "reason": f"GPS resolves to {location.get('label') or place_name}.",
+                            }
+                        )
+                    break
+        else:
+            hint = location.get("hint") if isinstance(location, dict) else None
+            new_album_suggestions.append(
+                {
+                    "name": "Location Review",
+                    "confidence": 0.4,
+                    "reason": (
+                        hint or "GPS coordinates exist but the offline geocoder is unavailable."
+                    ),
+                }
+            )
 
     if suggested_existing:
         primary = {
@@ -803,7 +905,9 @@ def _normalize_action(analysis: dict[str, Any], existing_albums: list[str]) -> d
             "type": "needs_review",
             "album_name": album_name,
             "confidence": confidence,
-            "reason": "Model selected an existing album name that was not in the scanned album list.",
+            "reason": (
+                "Model selected an existing album name that was not in the scanned album list."
+            ),
         }
 
     if action_type not in {"add_to_existing_album", "create_album", "skip", "needs_review"}:
@@ -820,7 +924,10 @@ def _normalize_action(analysis: dict[str, Any], existing_albums: list[str]) -> d
 def _save_proposal(
     source_album: str, metadata: dict[str, Any], analysis: dict[str, Any], action: dict[str, Any]
 ) -> str:
-    seed = f"{metadata.get('asset_id')}:{source_album}:{json.dumps(action, sort_keys=True)}:{time.time()}"
+    seed = (
+        f"{metadata.get('asset_id')}:{source_album}:"
+        f"{json.dumps(action, sort_keys=True)}:{time.time()}"
+    )
     proposal_id = _hash(seed)
     with _db() as con:
         con.execute(
@@ -859,7 +966,11 @@ def setup_check() -> dict[str, Any]:
         "session_dir": str(state_dir / "session"),
         "rules_path": str(_rules_path()),
         "rules_exists": _rules_path().exists(),
-        "codex_native_ai_mode": True,
+        "vision_mode": "client_native_mcp_image",
+        "vision_note": (
+            "Photos are returned as MCP image blocks; the connected model (Codex/Claude) "
+            "performs the vision. No external vision API is called."
+        ),
         "external_openai_api_required": False,
         "apple_id_configured": bool(apple_id),
         "region": region,
@@ -880,6 +991,13 @@ def setup_check() -> dict[str, Any]:
             checks[f"{package}_installed"] = True
         except ModuleNotFoundError:
             checks[f"{package}_installed"] = False
+    try:
+        __import__("reverse_geocode")
+        checks["reverse_geocode_installed"] = True
+        checks["location_albums"] = "available"
+    except ModuleNotFoundError:
+        checks["reverse_geocode_installed"] = False
+        checks["location_albums"] = _GEOCODE_HINT
     return checks
 
 
@@ -894,19 +1012,26 @@ def curation_workflow_guide() -> dict[str, Any]:
             {
                 "id": "scan_only",
                 "label": "Scan only",
-                "description": "Read albums and metadata. Do not cache image previews unless requested.",
+                "description": (
+                    "Read albums and metadata. Do not cache image previews unless requested."
+                ),
                 "icloud_writes": False,
             },
             {
                 "id": "scan_and_propose",
                 "label": "Scan and propose",
-                "description": "Read metadata, cache small previews, inspect them, and save local proposals.",
+                "description": (
+                    "Read metadata, cache small previews, inspect them, and save local proposals."
+                ),
                 "icloud_writes": False,
             },
             {
                 "id": "apply_approved",
                 "label": "Apply approved proposals",
-                "description": "Apply already approved proposals through the experimental gated write adapter.",
+                "description": (
+                    "Apply already approved proposals through the experimental gated "
+                    "write adapter."
+                ),
                 "icloud_writes": "experimental_gated",
                 "default_mode": "dry_run",
                 "required_confirmation": SAFE_WRITE_CONFIRMATION,
@@ -922,7 +1047,10 @@ def curation_workflow_guide() -> dict[str, Any]:
         ],
         "safety_rules": [
             "Never delete photos.",
-            "Do not apply writes unless the write adapter reports support and the user explicitly confirms.",
+            (
+                "Do not apply writes unless the write adapter reports support and the user "
+                "explicitly confirms."
+            ),
             "Use small batches first.",
             "Mark uncertain cases as needs_review.",
         ],
@@ -1047,28 +1175,41 @@ def prepare_photo_for_codex(
     version: str = "medium",
     existing_albums_limit: int = 200,
     max_scan: int = 100_000,
-) -> dict[str, Any]:
-    """Prepare one photo for Codex-native visual review without using an external API."""
+    embed_image: bool = True,
+):
+    """Prepare one photo for client-native visual review.
+
+    Returns the actual photo as an MCP image block so the connected vision model
+    (Codex/GPT or Claude) sees the pixels and can classify the content (food,
+    document, landscape, portrait, ...). No external vision API is called: the
+    client model performs the vision. The accompanying JSON carries metadata,
+    resolved GPS location, existing album names, and curation rules. Decide an
+    album, then call save_codex_proposal.
+    """
     try:
         api = _require_api()
         asset = _find_asset(album_name=album_name, asset_id=asset_id, max_scan=max_scan)
         metadata = _asset_metadata(asset, include_versions=True)
-        download = _download_version(asset, version=version)
-        return {
+        image, download = _asset_image(asset, version=version)
+        payload = {
             "mode": CODEX_REVIEW_MODE,
             "asset_id": asset_id,
             "source_album": album_name,
             "local_image_path": download["path"],
             "download": download,
             "metadata": metadata,
+            "location": metadata.get("location"),
             "existing_albums": _existing_album_names(api, limit=existing_albums_limit),
             "curation_rules": _read_curation_rules(),
             "next_step": (
-                "Codex should inspect local_image_path with native image understanding, "
-                "combine that with metadata/GPS/existing_albums, then call save_codex_proposal."
+                "Look at the image above with native image understanding, combine it with "
+                "metadata/location/existing_albums, then call save_codex_proposal."
             ),
             "write_status": "not_applied",
         }
+        if embed_image:
+            return [image, payload]
+        return payload
     except Exception as exc:
         return {"asset_id": asset_id, "album_name": album_name, "error": _compact_error(exc)}
 
@@ -1080,8 +1221,17 @@ def prepare_batch_for_codex(
     skip: int = 0,
     version: str = "thumb",
     existing_albums_limit: int = 200,
-) -> dict[str, Any]:
-    """Prepare a small batch of cached images and metadata for Codex-native review."""
+    embed_images: bool = True,
+):
+    """Prepare a small batch for client-native visual review.
+
+    When embed_images is true (default) the result interleaves each photo as a
+    real MCP image block with a text marker carrying its asset_id, so the
+    connected vision model (Codex/GPT or Claude) sees every picture and can sort
+    by visual content (food -> Food, etc.). No external vision API is used. GPS
+    is resolved to a place name via the offline geocoder for location albums.
+    For each photo decide an album and call save_codex_proposal.
+    """
     try:
         api = _require_api()
         album = _album_by_name(api, album_name)
@@ -1089,22 +1239,24 @@ def prepare_batch_for_codex(
         skip = max(0, int(skip))
         items: list[dict[str, Any]] = []
         errors: list[dict[str, Any]] = []
+        images: list[tuple[dict[str, Any], Image]] = []
 
         for index, asset in _iter_album_assets(album, skip=skip, limit=limit):
             _cache_asset(album_name, asset)
             metadata = _asset_metadata(asset, include_versions=True)
             try:
-                download = _download_version(asset, version=version)
-                items.append(
-                    {
-                        "album_index": index,
-                        "asset_id": metadata.get("asset_id"),
-                        "filename": metadata.get("filename"),
-                        "local_image_path": download["path"],
-                        "download": download,
-                        "metadata": metadata,
-                    }
-                )
+                image, download = _asset_image(asset, version=version)
+                item = {
+                    "album_index": index,
+                    "asset_id": metadata.get("asset_id"),
+                    "filename": metadata.get("filename"),
+                    "local_image_path": download["path"],
+                    "location": metadata.get("location"),
+                    "download": download,
+                    "metadata": metadata,
+                }
+                items.append(item)
+                images.append((item, image))
             except Exception as exc:
                 errors.append(
                     {
@@ -1115,7 +1267,7 @@ def prepare_batch_for_codex(
                     }
                 )
 
-        return {
+        summary = {
             "mode": CODEX_REVIEW_MODE,
             "source_album": album_name,
             "skip": skip,
@@ -1126,14 +1278,60 @@ def prepare_batch_for_codex(
             "existing_albums": _existing_album_names(api, limit=existing_albums_limit),
             "curation_rules": _read_curation_rules(),
             "next_step": (
-                "Codex should inspect each local_image_path, decide whether to add to an "
-                "existing album, create a new album, skip, or mark needs_review, then call "
-                "save_codex_proposal for each decision."
+                "Each image below is preceded by its asset_id. Look at every image, decide "
+                "whether to add to an existing album, create a new album, skip, or mark "
+                "needs_review, then call save_codex_proposal for each decision."
             ),
             "write_status": "not_applied",
         }
+        if not embed_images:
+            return summary
+
+        content: list[Any] = [summary]
+        for item, image in images:
+            place = (item.get("location") or {}).get("label")
+            marker = f"asset_id={item['asset_id']} filename={item.get('filename')}"
+            if place:
+                marker += f" place={place}"
+            content.append(marker)
+            content.append(image)
+        return content
     except Exception as exc:
         return {"album_name": album_name, "items": [], "error": _compact_error(exc)}
+
+
+@mcp.tool()
+def get_photo_image(
+    album_name: str,
+    asset_id: str,
+    version: str = "medium",
+    max_scan: int = 100_000,
+):
+    """Return one photo as an MCP image block so the client's vision model can see it.
+
+    Use this for precise, content-based sorting of a single asset: the connected
+    model (Codex/GPT or Claude) looks at the returned image and classifies what is
+    actually visible. No external vision API is used. The trailing JSON carries the
+    asset metadata and resolved GPS location.
+    """
+    try:
+        asset = _find_asset(album_name=album_name, asset_id=asset_id, max_scan=max_scan)
+        metadata = _asset_metadata(asset, include_versions=False)
+        image, download = _asset_image(asset, version=version)
+        return [
+            image,
+            {
+                "asset_id": asset_id,
+                "source_album": album_name,
+                "version": version,
+                "local_image_path": download["path"],
+                "location": metadata.get("location"),
+                "metadata": metadata,
+                "next_step": "Classify the image above, then call save_codex_proposal.",
+            },
+        ]
+    except Exception as exc:
+        return {"asset_id": asset_id, "album_name": album_name, "error": _compact_error(exc)}
 
 
 @mcp.tool()
@@ -1152,7 +1350,9 @@ def save_codex_proposal(
     if action_type not in {"add_to_existing_album", "create_album", "skip", "needs_review"}:
         return {
             "saved": False,
-            "error": "action_type must be add_to_existing_album, create_album, skip, or needs_review",
+            "error": (
+                "action_type must be add_to_existing_album, create_album, skip, or needs_review"
+            ),
         }
 
     metadata = {"asset_id": asset_id}
@@ -1199,7 +1399,13 @@ def analyze_photo(
     existing_albums_limit: int = 200,
     max_scan: int = 100_000,
 ) -> dict[str, Any]:
-    """Analyze one photo version with a vision model and return album recommendations."""
+    """Heuristic metadata-only analysis for one photo (no vision model is called).
+
+    This is a legacy fallback that classifies from filename, media type, and
+    resolved GPS location only. For real content-based sorting (food, documents,
+    landscapes, ...) use get_photo_image or prepare_batch_for_codex, which let the
+    connected model see the actual pixels.
+    """
     try:
         api = _require_api()
         asset = _find_asset(album_name=album_name, asset_id=asset_id, max_scan=max_scan)
@@ -1229,7 +1435,12 @@ def curate_batch(
     version: str = "medium",
     existing_albums_limit: int = 200,
 ) -> dict[str, Any]:
-    """Analyze a small iCloud Photos batch and store proposed album actions for review."""
+    """Legacy metadata-only batch: store heuristic album proposals (no vision model).
+
+    Classifies from filename, media type, and resolved GPS location only. For
+    content-aware sorting use prepare_batch_for_codex, which sends the actual
+    images to the connected vision model.
+    """
     try:
         api = _require_api()
         album = _album_by_name(api, album_name)
@@ -1283,7 +1494,8 @@ def curate_batch(
         }
         with _db() as con:
             con.execute(
-                "INSERT INTO scans (id, source_album, limit_count, skip_count, created_at, summary_json) "
+                "INSERT INTO scans "
+                "(id, source_album, limit_count, skip_count, created_at, summary_json) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (scan_id, album_name, limit, skip, _now(), json.dumps(summary, ensure_ascii=True)),
             )
@@ -1330,7 +1542,7 @@ def review_proposals(status: str = "proposed", limit: int = 50) -> dict[str, Any
 
 @mcp.tool()
 def mark_proposals_reviewed(proposal_ids: list[str], decision: str = "approved") -> dict[str, Any]:
-    """Mark proposals as approved, rejected, or needs_review locally. This does not change iCloud."""
+    """Mark proposals approved/rejected/needs_review locally. This does not change iCloud."""
     allowed = {"approved", "rejected", "needs_review", "proposed"}
     if decision not in allowed:
         return {"updated": 0, "error": f"decision must be one of {sorted(allowed)}"}
@@ -1479,7 +1691,12 @@ def apply_proposals(
     try:
         api = _require_api()
     except Exception as exc:
-        return {"applied": False, "dry_run": dry_run, "proposal_ids": proposal_ids, "error": _compact_error(exc)}
+        return {
+            "applied": False,
+            "dry_run": dry_run,
+            "proposal_ids": proposal_ids,
+            "error": _compact_error(exc),
+        }
 
     for proposal_id, asset_id, source_album, action_json, status in rows:
         action = json.loads(action_json)
@@ -1498,7 +1715,9 @@ def apply_proposals(
             results.append({"proposal_id": proposal_id, "applied": False, "reason": action_type})
             continue
         if not album_name:
-            results.append({"proposal_id": proposal_id, "applied": False, "reason": "Missing album_name."})
+            results.append(
+                {"proposal_id": proposal_id, "applied": False, "reason": "Missing album_name."}
+            )
             continue
 
         album_id = created_album_ids.get(album_name)
@@ -1540,7 +1759,9 @@ def apply_proposals(
                         confirmation=confirmation,
                         risk_acknowledgement=risk_acknowledgement,
                     )
-                    plans.append({"proposal_id": proposal_id, "step": "create_album", "result": created})
+                    plans.append(
+                        {"proposal_id": proposal_id, "step": "create_album", "result": created}
+                    )
                     if dry_run:
                         album_id = (created.get("plan") or {}).get("record_name")
                     elif created.get("created") or created.get("album_id"):
@@ -1603,7 +1824,9 @@ def apply_proposals(
                 "asset_id": asset_id,
                 "error": _compact_error(exc),
             }
-        plans.append({"proposal_id": proposal_id, "step": "add_photo_to_album", "result": add_result})
+        plans.append(
+            {"proposal_id": proposal_id, "step": "add_photo_to_album", "result": add_result}
+        )
         item = {
             "proposal_id": proposal_id,
             "applied": bool(add_result.get("added")),
@@ -1619,7 +1842,11 @@ def apply_proposals(
 
     apply_targets = [item for item in results if "applied" in item]
     return {
-        "applied": (not dry_run) and bool(apply_targets) and all(item.get("applied") for item in apply_targets),
+        "applied": (
+            (not dry_run)
+            and bool(apply_targets)
+            and all(item.get("applied") for item in apply_targets)
+        ),
         "dry_run": dry_run,
         "proposal_count": len(rows),
         "plans": plans,

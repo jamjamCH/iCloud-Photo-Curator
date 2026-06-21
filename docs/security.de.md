@@ -45,10 +45,20 @@ Der MCP setzt alle write-fähigen Tools standardmäßig auf Dry-Run. Echte Write
 
 1. Der MCP-Server authentifiziert lokal bei iCloud.
 2. Der Server liest Album- und Asset-Metadaten.
-3. Der Server cached kleine Bildversionen nur auf Anfrage.
-4. Der KI-Client schaut den lokalen Cache-Pfad an.
-5. Album-Entscheidungen werden lokal als Vorschläge gespeichert.
-6. Genehmigte Vorschläge können per Dry-Run geprüft oder über den abgesicherten Write-Adapter angewendet werden.
+3. GPS-Koordinaten werden mit dem Offline-Datensatz `reverse_geocode` zu einem Ortsnamen aufgelöst. Beim Geocoding gibt es keinen Netzwerk-Call und keinen Drittanbieter.
+4. Der Server cached kleine Bildversionen nur auf Anfrage.
+5. Für das Vision-Review wird das gecachte Bild als MCP-Bild-Block an den verbundenen Client (Codex/GPT oder Claude) zurückgegeben, damit das Modell es sehen kann. Es wird keine separate externe Vision-API aufgerufen; das Bild bleibt innerhalb des ohnehin gewählten Modells.
+6. Album-Entscheidungen werden lokal als Vorschläge gespeichert.
+7. Genehmigte Vorschläge können per Dry-Run geprüft oder über den abgesicherten Write-Adapter angewendet werden.
+
+## Vision- Und Ort-Datenschutz
+
+| Thema | Detail |
+| --- | --- |
+| Vision-Modell | Das verbundene Client-Modell führt die Bildanalyse durch. Der MCP-Server ruft nie eine externe Vision-API auf. |
+| Bild-Weitergabe | Kleine `thumb`/`medium`-Previews gehen als Bild-Blöcke an den verbundenen Client, genau wie jede andere Tool-Ausgabe. Originale werden standardmäßig nicht gesendet. |
+| Geocoding | Vollständig offline über den eingebetteten `reverse_geocode`-Städtedatensatz. Koordinaten gehen nie an einen entfernten Geocoder. |
+| Optionale Abhängigkeit | Ist `reverse_geocode` nicht installiert, werden Ortsalben übersprungen und `setup_check` meldet einen Installationshinweis. |
 
 ## Bekannte Risiken
 

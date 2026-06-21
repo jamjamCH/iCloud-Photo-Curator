@@ -6,11 +6,9 @@ without a running MCP server.
 """
 from __future__ import annotations
 
-import os
 import sys
 import types
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -33,7 +31,14 @@ class _FakeFastMCP:
     def run(self):
         pass
 
+class _FakeImage:
+    def __init__(self, path=None, data=None, format=None) -> None:
+        self.path = path
+        self.data = data
+        self.format = format
+
 _mcp_fastmcp_stub.FastMCP = _FakeFastMCP
+_mcp_fastmcp_stub.Image = _FakeImage
 _mcp_stub.server = _mcp_server_stub
 _mcp_server_stub.fastmcp = _mcp_fastmcp_stub
 
@@ -50,12 +55,14 @@ from icloud_photo_curator_mcp import (  # noqa: E402
     SAFE_WRITE_CONFIRMATION,
     WRITE_RISK_ACKNOWLEDGEMENT,
     _hash,
+    _metadata_only_analysis,
     _normalize_action,
     _parse_env_value,
+    _reverse_geocode,
     _safe_name,
+    _to_float,
     _write_guard,
 )
-
 
 # ---------------------------------------------------------------------------
 # _write_guard
@@ -223,20 +230,24 @@ class TestNormalizeAction:
         }
 
     def test_low_confidence_becomes_needs_review(self):
-        result = _normalize_action(self._action("add_to_existing_album", "Travel", confidence=0.3), self._existing)
+        action = self._action("add_to_existing_album", "Travel", confidence=0.3)
+        result = _normalize_action(action, self._existing)
         assert result["type"] == "needs_review"
 
     def test_high_confidence_add_existing_passes(self):
-        result = _normalize_action(self._action("add_to_existing_album", "Travel", confidence=0.9), self._existing)
+        action = self._action("add_to_existing_album", "Travel", confidence=0.9)
+        result = _normalize_action(action, self._existing)
         assert result["type"] == "add_to_existing_album"
         assert result["album_name"] == "Travel"
 
     def test_add_to_unknown_album_becomes_needs_review(self):
-        result = _normalize_action(self._action("add_to_existing_album", "Nonexistent", confidence=0.9), self._existing)
+        action = self._action("add_to_existing_album", "Nonexistent", confidence=0.9)
+        result = _normalize_action(action, self._existing)
         assert result["type"] == "needs_review"
 
     def test_create_album_passes(self):
-        result = _normalize_action(self._action("create_album", "Weddings", confidence=0.85), self._existing)
+        action = self._action("create_album", "Weddings", confidence=0.85)
+        result = _normalize_action(action, self._existing)
         assert result["type"] == "create_album"
 
     def test_skip_passes(self):
@@ -244,7 +255,8 @@ class TestNormalizeAction:
         assert result["type"] == "skip"
 
     def test_unknown_action_type_becomes_needs_review(self):
-        result = _normalize_action(self._action("delete_everything", confidence=0.99), self._existing)
+        action = self._action("delete_everything", confidence=0.99)
+        result = _normalize_action(action, self._existing)
         assert result["type"] == "needs_review"
 
     def test_missing_primary_action_becomes_needs_review(self):
@@ -253,7 +265,102 @@ class TestNormalizeAction:
 
     def test_confidence_threshold_boundary(self, monkeypatch):
         monkeypatch.setenv("ICLOUD_PHOTO_CURATOR_MIN_CONFIDENCE", "0.80")
-        below = _normalize_action(self._action("create_album", "X", confidence=0.79), self._existing)
+        below = _normalize_action(
+            self._action("create_album", "X", confidence=0.79), self._existing
+        )
         assert below["type"] == "needs_review"
-        above = _normalize_action(self._action("create_album", "X", confidence=0.80), self._existing)
+        above = _normalize_action(
+            self._action("create_album", "X", confidence=0.80), self._existing
+        )
         assert above["type"] == "create_album"
+
+
+# ---------------------------------------------------------------------------
+# _to_float
+# ---------------------------------------------------------------------------
+
+class TestToFloat:
+    def test_none(self):
+        assert _to_float(None) is None
+
+    def test_int(self):
+        assert _to_float(3) == 3.0
+
+    def test_numeric_string(self):
+        assert _to_float("48.85") == 48.85
+
+    def test_garbage(self):
+        assert _to_float("not-a-number") is None
+
+
+# ---------------------------------------------------------------------------
+# _reverse_geocode
+# ---------------------------------------------------------------------------
+
+class TestReverseGeocode:
+    def test_no_coordinates_returns_none(self):
+        assert _reverse_geocode(None, None) is None
+        assert _reverse_geocode(48.85, None) is None
+
+    def test_missing_library_returns_hint(self, monkeypatch):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "reverse_geocode":
+                raise ModuleNotFoundError("No module named 'reverse_geocode'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+        # Use coordinates unlikely to be cached by other tests.
+        result = _reverse_geocode(12.3456, 65.4321)
+        assert result is not None
+        assert result.get("available") is False
+        assert "hint" in result
+
+    def test_resolves_known_city_when_available(self):
+        pytest.importorskip("reverse_geocode")
+        result = _reverse_geocode(48.8584, 2.2945)  # Eiffel Tower
+        assert result is not None
+        assert result.get("available") is True
+        assert result.get("country_code") == "FR"
+        assert result.get("label")
+
+
+# ---------------------------------------------------------------------------
+# _metadata_only_analysis location handling
+# ---------------------------------------------------------------------------
+
+class TestLocationAnalysis:
+    def test_screenshot_filename_suggests_album(self):
+        meta = {"filename": "Screenshot 2024.png", "media": {}, "gps": {}}
+        analysis = _metadata_only_analysis(meta, ["Screenshots"])
+        assert analysis["primary_action"]["album_name"] == "Screenshots"
+
+    def test_resolved_location_creates_place_album(self):
+        meta = {
+            "filename": "img.jpg",
+            "media": {},
+            "gps": {"latitude": 1.0, "longitude": 2.0},
+            "location": {
+                "available": True,
+                "city": "Paris",
+                "country": "France",
+                "label": "Paris, France",
+            },
+        }
+        analysis = _metadata_only_analysis(meta, [])
+        names = [s["name"] for s in analysis["new_album_suggestions"]]
+        assert "Paris" in names
+
+    def test_unavailable_geocoder_falls_back_to_review(self):
+        meta = {
+            "filename": "img.jpg",
+            "media": {},
+            "gps": {"latitude": 1.0, "longitude": 2.0},
+            "location": {"available": False, "hint": "install it"},
+        }
+        analysis = _metadata_only_analysis(meta, [])
+        names = [s["name"] for s in analysis["new_album_suggestions"]]
+        assert "Location Review" in names

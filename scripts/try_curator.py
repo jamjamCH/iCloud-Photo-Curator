@@ -55,7 +55,7 @@ def _write_env_file(values: dict[str, str], path: Path = DEFAULT_ENV_PATH) -> No
     safe_values = {key: value for key, value in values.items() if key in ENV_KEYS and value}
     lines = [
         "# iCloud Photo Curator local config",
-        "# Do not store passwords in this file. Passwords belong in Windows Keyring.",
+        "# Do not store passwords in this file. Passwords belong in the OS Keyring.",
     ]
     for key in [
         "ICLOUD_PHOTO_CURATOR_APPLE_ID",
@@ -79,8 +79,12 @@ def _connect(args: argparse.Namespace) -> dict[str, Any]:
     if not username:
         username = input("Apple ID email: ").strip()
     if not username:
-        _print({"logged_in": False, "error": "Apple ID is required."})
-        return
+        error = {
+            "connected": False,
+            "error": {"type": "ValueError", "message": "Apple ID is required."},
+        }
+        _print(error)
+        return error
     if args.ask_password and not password:
         password = getpass.getpass("iCloud password: ")
 
@@ -134,7 +138,7 @@ def cmd_login(args: argparse.Namespace) -> None:
     )
     curator._reload_local_env()
 
-    password = getpass.getpass("iCloud password (stored in Windows Keyring, not .env): ")
+    password = getpass.getpass("iCloud password (stored in the OS Keyring, not .env): ")
     if not password:
         _print({"logged_in": False, "error": "Password is required and was not stored."})
         return
@@ -151,7 +155,9 @@ def cmd_login(args: argparse.Namespace) -> None:
         {
             "logged_in": bool(result.get("connected")),
             "auth": (two_factor or result).get("auth", result.get("auth")),
-            "two_factor_validated": None if two_factor is None else bool(two_factor.get("validated")),
+            "two_factor_validated": (
+                None if two_factor is None else bool(two_factor.get("validated"))
+            ),
             "env_path": setup.get("env_path"),
             "env_exists": setup.get("env_exists"),
             "apple_id_configured": setup.get("apple_id_configured"),
@@ -230,6 +236,7 @@ def cmd_prepare(args: argparse.Namespace) -> None:
             skip=args.skip,
             version=args.version,
             existing_albums_limit=args.existing_albums_limit,
+            embed_images=False,
         )
     )
 
@@ -306,28 +313,52 @@ def cmd_apply_proposals(args: argparse.Namespace) -> None:
 
 
 def add_auth_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--username", help="Apple ID email. Prefer env var ICLOUD_PHOTO_CURATOR_APPLE_ID.")
-    parser.add_argument("--ask-password", action="store_true", help="Prompt for password if ICLOUD_PHOTO_CURATOR_PASSWORD is not set.")
+    parser.add_argument(
+        "--username", help="Apple ID email. Prefer env var ICLOUD_PHOTO_CURATOR_APPLE_ID."
+    )
+    parser.add_argument(
+        "--ask-password",
+        action="store_true",
+        help="Prompt for password if ICLOUD_PHOTO_CURATOR_PASSWORD is not set.",
+    )
     parser.add_argument("--two-factor-code", help="Apple 2FA code shown on your trusted device.")
     parser.add_argument("--region", choices=["global", "china"])
 
 
 def add_write_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--execute", action="store_true", help="Apply live iCloud album changes. Default is dry-run.")
-    parser.add_argument("--confirmation", default="", help="Required exact confirmation phrase for --execute.")
-    parser.add_argument("--risk-acknowledgement", default="", help="Required exact risk acknowledgement phrase for --execute.")
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Apply live iCloud album changes. Default is dry-run.",
+    )
+    parser.add_argument(
+        "--confirmation", default="", help="Required exact confirmation phrase for --execute."
+    )
+    parser.add_argument(
+        "--risk-acknowledgement",
+        default="",
+        help="Required exact risk acknowledgement phrase for --execute.",
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Try the iCloud Photo Curator without an MCP client.")
+    parser = argparse.ArgumentParser(
+        description="Try the iCloud Photo Curator without an MCP client."
+    )
     sub = parser.add_subparsers(required=True)
 
     setup = sub.add_parser("setup", help="Run local dependency/config self-check.")
     setup.set_defaults(func=cmd_setup)
 
-    login = sub.add_parser("login", help="Configure .env, store password in Windows Keyring, and trust the session.")
+    login = sub.add_parser(
+        "login",
+        help="Configure .env, store password in the OS Keyring, and trust the session.",
+    )
     add_auth_args(login)
-    login.add_argument("--state-dir", help="State/cache/session directory. Defaults to ~/.icloud-photo-curator.")
+    login.add_argument(
+        "--state-dir",
+        help="State/cache/session directory. Defaults to ~/.icloud-photo-curator.",
+    )
     login.set_defaults(func=cmd_login)
 
     connect = sub.add_parser("connect", help="Test iCloud login and 2FA state.")
@@ -374,10 +405,14 @@ def main() -> None:
     rules = sub.add_parser("rules", help="Show or update local curation rules.")
     rules.add_argument("--set-file", help="Replace rules with markdown from this file.")
     rules.add_argument("--add", help="Append one rule or markdown snippet.")
-    rules.add_argument("--append", action="store_true", help="Append --set-file content instead of replacing.")
+    rules.add_argument(
+        "--append", action="store_true", help="Append --set-file content instead of replacing."
+    )
     rules.set_defaults(func=cmd_rules)
 
-    writes = sub.add_parser("write-capabilities", help="Show experimental write support and required safeguards.")
+    writes = sub.add_parser(
+        "write-capabilities", help="Show experimental write support and required safeguards."
+    )
     writes.set_defaults(func=cmd_write_capabilities)
 
     create_album = sub.add_parser("create-album", help="Dry-run or create one iCloud Photos album.")
@@ -391,7 +426,9 @@ def main() -> None:
     add_write_args(add_photo)
     add_photo.add_argument("--album", required=True, help="Destination album name.")
     add_photo.add_argument("--asset-id", required=True, help="Asset ID from scan/prepare output.")
-    add_photo.add_argument("--source-album", default="All Photos", help="Album used to locate the source asset.")
+    add_photo.add_argument(
+        "--source-album", default="All Photos", help="Album used to locate the source asset."
+    )
     add_photo.set_defaults(func=cmd_add_photo)
 
     apply = sub.add_parser("apply-proposals", help="Dry-run or apply approved local proposals.")

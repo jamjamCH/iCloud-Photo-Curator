@@ -20,11 +20,13 @@ Das erstellt oder aktualisiert `~/.icloud-photo-curator/.env`, speichert das iCl
 
 | Befehl | Zweck |
 | --- | --- |
-| `python scripts/try_curator.py setup` | Dependencies, Config, Session-Ordner und Keyring-Status prüfen |
+| `python scripts/try_curator.py setup` | Dependencies, Config, Session-Ordner, Keyring- und Geocoder-Status prüfen |
 | `python scripts/try_curator.py login` | Apple-ID, Keyring-Passwort und trusted Session einrichten |
+| `python scripts/try_curator.py connect` | iCloud-Login und 2FA-Status testen, ohne zu scannen |
 | `python scripts/try_curator.py albums` | Alben nach dem Login listen |
-| `python scripts/try_curator.py scan --album "All Photos" --limit 5` | Nur Metadaten lesen |
-| `python scripts/try_curator.py prepare --album "All Photos" --limit 3 --version thumb` | Kleine Previews für KI-Review cachen |
+| `python scripts/try_curator.py scan --album "All Photos" --limit 5` | Nur Metadaten lesen (inkl. aufgelöstem GPS-Ort) |
+| `python scripts/try_curator.py prepare --album "All Photos" --limit 3 --version thumb` | Kleine Previews + Metadaten/Ort für KI-Review cachen |
+| `python scripts/try_curator.py curate --album "All Photos" --limit 3` | Legacy-Batch nur mit Metadaten (kein Vision) |
 | `python scripts/try_curator.py review` | Lokal gespeicherte Vorschläge prüfen |
 | `python scripts/try_curator.py rules` | Persönliche Sortierregeln anzeigen |
 | `python scripts/try_curator.py rules --add "Bevorzuge bestehende Alben."` | Sortierregel ergänzen |

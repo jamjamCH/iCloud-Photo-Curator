@@ -1,3 +1,5 @@
 mcp>=1.2.0
 icloudpy>=0.8.0
 keyring>=25.0.0
+# Offline reverse geocoding for location-based albums (GPS -> city/country).
+reverse_geocode>=1.6.0

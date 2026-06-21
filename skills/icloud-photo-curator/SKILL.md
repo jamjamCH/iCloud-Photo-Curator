@@ -12,7 +12,7 @@ Use this skill when the user wants to inspect, classify, or organize iCloud Phot
 - Treat the MCP as read-first and proposal-first.
 - Do not ask for Apple ID passwords in chat unless the user explicitly chooses that path.
 - Prefer environment variables or keyring-backed `icloudpy` authentication.
-- Prefer the one-time `try_curator.py login` flow. It writes only safe config to `~/.icloud-photo-curator/.env` and stores the password in Windows Keyring.
+- Prefer the one-time `try_curator.py login` flow. It writes only safe config to `~/.icloud-photo-curator/.env` and stores the password in the OS Keyring.
 - Never store or suggest storing iCloud passwords in `.env`.
 - Never delete photos.
 - Treat album writes as experimental and gated. Never claim that a live write succeeded unless the MCP tool reports success.
@@ -30,9 +30,9 @@ Use this skill when the user wants to inspect, classify, or organize iCloud Phot
 6. Run `connect_icloud`; if it requires 2FA, ask the user for the current code and call `validate_2fa_code`.
 7. Run `list_albums` to understand existing album names.
 8. For scan-only mode, run `scan_album` and summarize without making proposals.
-9. For proposal mode, run `prepare_batch_for_codex` with `version="thumb"` or `version="medium"`.
-10. Inspect each returned `local_image_path` with Codex's native image understanding.
-11. Combine visual understanding with metadata/GPS/existing albums and curation rules.
+9. For proposal mode, run `prepare_batch_for_codex` with `version="thumb"` or `version="medium"`. It returns each photo as an embedded MCP image block preceded by a marker with its `asset_id`.
+10. Look at every embedded image directly with your own native image understanding. Sort by what is actually visible (food -> a Food album, documents -> Documents, landscapes/travel -> a place album, etc.). Use `get_photo_image` if you need to re-inspect a single asset.
+11. Combine the visual content with metadata, the resolved `location` (city/state/country from the offline geocoder), existing album names, and curation rules. For travel photos prefer the resolved place name as the album.
 12. Call `save_codex_proposal` for each decision, including rule matches when useful.
 13. Run `review_proposals` and summarize the actions before any write attempt.
 14. For write mode, run `write_capabilities`, show a dry-run plan, and apply only approved proposals when the user explicitly confirms the required phrases.

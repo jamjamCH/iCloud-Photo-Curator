@@ -1,6 +1,6 @@
 [project]
 name = "icloud-photo-curator"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server for AI-assisted iCloud Photos curation with proposal review and gated album writes."
 requires-python = ">=3.10"
 dependencies = [
@@ -10,9 +10,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+geo = [
+  "reverse_geocode>=1.6.0",
+]
 dev = [
   "ruff>=0.8.0",
   "pytest>=8.0.0",
+  "reverse_geocode>=1.6.0",
 ]
 
 [tool.pytest.ini_options]
