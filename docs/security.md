@@ -45,10 +45,20 @@ The MCP defaults every write-capable tool to dry-run. Live writes require all of
 
 1. The MCP server authenticates to iCloud locally.
 2. The server reads album metadata and asset metadata.
-3. The server caches a small image version only when requested.
-4. The AI client inspects the local cached file path.
-5. Album decisions are stored locally as proposals.
-6. Approved proposals can be dry-run or applied through the gated write adapter.
+3. GPS coordinates are resolved to a place name with the offline `reverse_geocode` dataset. No network call and no third party are involved in geocoding.
+4. The server caches a small image version only when requested.
+5. For vision review the cached image is returned to the connected MCP client (Codex/GPT or Claude) as an MCP image block so the model can see it. No separate external vision API is called; the image stays within the model you already chose to use.
+6. Album decisions are stored locally as proposals.
+7. Approved proposals can be dry-run or applied through the gated write adapter.
+
+## Vision And Location Privacy
+
+| Topic | Detail |
+| --- | --- |
+| Vision model | The connected client model performs the vision. The MCP server never calls an external vision API. |
+| Image exposure | Small `thumb`/`medium` previews are sent to the connected client as image blocks, exactly like any other tool output. Originals are not sent by default. |
+| Geocoding | Fully offline via the bundled `reverse_geocode` city dataset. Coordinates are never sent to a remote geocoder. |
+| Optional dependency | If `reverse_geocode` is not installed, location albums are skipped and `setup_check` reports an install hint. |
 
 ## Known Risks
 

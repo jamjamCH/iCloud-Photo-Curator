@@ -20,11 +20,13 @@ This creates or updates `~/.icloud-photo-curator/.env`, stores the iCloud passwo
 
 | Command | Purpose |
 | --- | --- |
-| `python scripts/try_curator.py setup` | Check dependencies, config, session directory, and Keyring status |
+| `python scripts/try_curator.py setup` | Check dependencies, config, session directory, Keyring, and geocoder status |
 | `python scripts/try_curator.py login` | Configure Apple ID, Keyring password, and trusted session |
+| `python scripts/try_curator.py connect` | Test iCloud login and 2FA state without scanning |
 | `python scripts/try_curator.py albums` | List albums after login |
-| `python scripts/try_curator.py scan --album "All Photos" --limit 5` | Read metadata only |
-| `python scripts/try_curator.py prepare --album "All Photos" --limit 3 --version thumb` | Cache small previews for AI-client review |
+| `python scripts/try_curator.py scan --album "All Photos" --limit 5` | Read metadata only (includes resolved GPS location) |
+| `python scripts/try_curator.py prepare --album "All Photos" --limit 3 --version thumb` | Cache small previews + metadata/location for AI-client review |
+| `python scripts/try_curator.py curate --album "All Photos" --limit 3` | Legacy metadata-only batch proposal helper (no vision) |
 | `python scripts/try_curator.py review` | Review locally saved proposals |
 | `python scripts/try_curator.py rules` | Show personal sorting rules |
 | `python scripts/try_curator.py rules --add "Prefer existing albums."` | Append a sorting rule |

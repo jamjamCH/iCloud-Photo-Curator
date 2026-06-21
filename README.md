@@ -11,7 +11,7 @@
 
 *Deutsch: [README.de.md](README.de.md)*
 
-**iCloud Photo Curator** is a local Codex plugin and MCP server for safe, AI-assisted iCloud Photos curation. It reads remote iCloud Photos metadata, lists albums, downloads small thumbnails or medium previews, and lets a local AI client such as Codex or Claude inspect those local previews before saving album proposals.
+**iCloud Photo Curator** is a local Codex plugin and MCP server for safe, AI-assisted iCloud Photos curation. It reads remote iCloud Photos metadata, lists albums, and returns small thumbnails or medium previews **as MCP image blocks** so the connected vision model (Codex/GPT or Claude) actually *sees* each photo and sorts it by visual content — food into a Food album, documents into Documents, and so on. GPS coordinates are resolved to a city/country **offline** so travel photos can be grouped by place. No external vision API is called: the connected model is the vision model.
 
 It does **not** delete photos. Album creation and adding photos to albums are available only through an **experimental gated write mode** that defaults to dry-run and requires explicit user approval before any live iCloud change.
 
@@ -20,7 +20,8 @@ It does **not** delete photos. Album creation and adding photos to albums are av
 | Area | Current behavior |
 | --- | --- |
 | iCloud access | Uses `icloudpy` and iCloud web/private CloudKit endpoints |
-| AI review | The MCP returns local image paths; Codex or Claude inspects them in the client |
+| AI review | The MCP returns photos as image blocks; the connected model (Codex/GPT or Claude) sees the pixels and classifies content |
+| Location | GPS is resolved offline to city/state/country via `reverse_geocode` for place-based albums |
 | Downloads | Small `thumb` or `medium` versions by default, not originals |
 | Credentials | Apple ID in local `.env`, password in OS Keyring only |
 | Writes | Experimental, dry-run by default; live writes require env flag and exact confirmations |
@@ -37,6 +38,25 @@ The AI client should ask which mode the user wants before processing a library.
 | Apply approved proposals | Apply reviewed proposals through the gated write adapter | Dry-run by default; live writes require explicit approval |
 
 The MCP exposes `curation_workflow_guide` so clients can retrieve these required questions instead of guessing the workflow.
+
+## How Vision And Location Sorting Work
+
+Sorting by *what is actually in the picture* needs a vision model. This plugin does **not** call an external vision API. Instead it uses the model you are already talking to:
+
+1. `prepare_batch_for_codex` (or `get_photo_image` for a single asset) downloads a small `thumb`/`medium` version and returns it as a real **MCP image block**, preceded by a text marker with its `asset_id`.
+2. Codex/GPT or Claude Desktop receives the actual pixels and classifies the content (food, document, landscape, portrait, receipt, screenshot, …).
+3. For GPS-tagged photos the server resolves the coordinates to a `city`, `state`, and `country` using the offline `reverse_geocode` dataset (no network call), so travel photos can be grouped by place.
+4. The model combines vision + location + metadata + your personal rules and calls `save_codex_proposal` for each decision.
+
+So a food photo lands in **Food**, and a vacation photo taken in Paris is proposed for a **Paris** album. The older `analyze_photo` / `curate_batch` tools are a metadata-only fallback (filename, media type, location) and do **not** look at pixels.
+
+Location albums require the optional offline geocoder. It is included in `requirements.txt`, or install it separately:
+
+```text
+pip install reverse_geocode
+```
+
+`setup_check` reports `reverse_geocode_installed` and a `location_albums` status.
 
 ## Recommended Folder Location
 
@@ -141,10 +161,11 @@ Example rules:
 | `list_albums` | Lists iCloud Photos albums | No |
 | `scan_album` | Reads metadata without downloading originals | No |
 | `download_photo_version` | Caches one small version locally | No |
-| `prepare_photo_for_codex` | Prepares one preview for AI-client review | No |
-| `prepare_batch_for_codex` | Prepares a small batch for AI-client review | No |
-| `analyze_photo` | Runs metadata-based analysis and returns album recommendations | No |
-| `curate_batch` | Analyzes a batch and stores proposed album actions for review | No |
+| `get_photo_image` | Returns one photo as an MCP image block for client-native vision | No |
+| `prepare_photo_for_codex` | Returns one photo (image block) + metadata/location for review | No |
+| `prepare_batch_for_codex` | Returns a small batch as image blocks + metadata/location for review | No |
+| `analyze_photo` | Metadata-only fallback (no vision model); returns album recommendations | No |
+| `curate_batch` | Metadata-only fallback batch; stores proposed album actions | No |
 | `save_codex_proposal` | Stores a local album decision | No |
 | `review_proposals` | Reviews saved proposals | No |
 | `mark_proposals_reviewed` | Approves or rejects proposals locally | No |

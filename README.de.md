@@ -11,7 +11,7 @@
 
 *English: [README.md](README.md)*
 
-**iCloud Photo Curator** ist ein lokales Codex-Plugin und ein MCP-Server für vorsichtige, KI-gestützte iCloud-Fotos-Kuration. Das Plugin liest iCloud-Fotos-Metadaten, scannt Alben, lädt kleine Thumbnails oder Medium-Previews und gibt diese lokalen Bildpfade an Codex oder Claude weiter, damit die KI Vorschläge für die Sortierung machen kann.
+**iCloud Photo Curator** ist ein lokales Codex-Plugin und ein MCP-Server für vorsichtige, KI-gestützte iCloud-Fotos-Kuration. Das Plugin liest iCloud-Fotos-Metadaten, scannt Alben und gibt kleine Thumbnails oder Medium-Previews **als MCP-Bild-Blöcke** zurück, damit das verbundene Vision-Modell (Codex/GPT oder Claude) jedes Foto wirklich *sieht* und nach Bildinhalt sortiert — Essen in ein Food-Album, Dokumente in Dokumente usw. GPS-Koordinaten werden **offline** zu Stadt/Land aufgelöst, damit Urlaubsfotos nach Ort gruppiert werden können. Es wird keine externe Vision-API aufgerufen: Das verbundene Modell ist das Vision-Modell.
 
 Es löscht keine Fotos. Alben erstellen und Fotos zu Alben hinzufügen ist nur über einen **experimentellen, abgesicherten Write-Modus** verfügbar, der standardmäßig als Dry-Run läuft und vor echten iCloud-Änderungen eine explizite Nutzerfreigabe verlangt.
 
@@ -20,7 +20,8 @@ Es löscht keine Fotos. Alben erstellen und Fotos zu Alben hinzufügen ist nur �
 | Bereich | Aktuelles Verhalten |
 | --- | --- |
 | iCloud-Zugriff | Nutzt `icloudpy` und iCloud-Web/private CloudKit-Endpunkte |
-| KI-Bewertung | Der MCP gibt lokale Bildpfade zurück; Codex oder Claude schaut diese im Client an |
+| KI-Bewertung | Der MCP gibt Fotos als Bild-Blöcke zurück; das verbundene Modell (Codex/GPT oder Claude) sieht die Pixel und klassifiziert den Inhalt |
+| Ort | GPS wird offline via `reverse_geocode` zu Stadt/Region/Land aufgelöst, für ortsbasierte Alben |
 | Downloads | Standardmäßig kleine `thumb`- oder `medium`-Versionen, keine Originale |
 | Zugangsdaten | Apple-ID in lokaler `.env`, Passwort nur im Betriebssystem-Keyring |
 | Schreibzugriffe | Experimentell, standardmäßig Dry-Run; echte Writes brauchen Env-Flag und exakte Bestätigungen |
@@ -37,6 +38,25 @@ Der KI-Client sollte vor der Verarbeitung fragen, welchen Modus der Nutzer möch
 | Genehmigte Vorschläge anwenden | Geprüfte Vorschläge über den abgesicherten Write-Adapter anwenden | Standardmäßig Dry-Run; echte Writes brauchen explizite Freigabe |
 
 Der MCP stellt `curation_workflow_guide` bereit, damit Clients diese Pflichtfragen abrufen können, statt den Workflow zu erraten.
+
+## Wie Vision- Und Ortssortierung Funktioniert
+
+Sortieren nach *dem, was wirklich auf dem Bild ist*, braucht ein Vision-Modell. Dieses Plugin ruft **keine** externe Vision-API auf. Stattdessen nutzt es das Modell, mit dem du ohnehin sprichst:
+
+1. `prepare_batch_for_codex` (oder `get_photo_image` für ein einzelnes Asset) lädt eine kleine `thumb`/`medium`-Version und gibt sie als echten **MCP-Bild-Block** zurück, davor ein Text-Marker mit der `asset_id`.
+2. Codex/GPT oder Claude Desktop bekommt die echten Pixel und klassifiziert den Inhalt (Essen, Dokument, Landschaft, Porträt, Beleg, Screenshot, …).
+3. Bei GPS-getaggten Fotos löst der Server die Koordinaten offline über den `reverse_geocode`-Datensatz zu `city`, `state` und `country` auf (kein Netzwerk-Call), damit Urlaubsfotos nach Ort gruppiert werden können.
+4. Das Modell kombiniert Vision + Ort + Metadaten + deine persönlichen Regeln und ruft für jede Entscheidung `save_codex_proposal` auf.
+
+So landet ein Essensfoto in **Food**, und ein in Paris aufgenommenes Urlaubsfoto wird für ein **Paris**-Album vorgeschlagen. Die älteren Tools `analyze_photo` / `curate_batch` sind ein reiner Metadaten-Fallback (Dateiname, Medientyp, Ort) und schauen **nicht** auf die Pixel.
+
+Ortsalben brauchen den optionalen Offline-Geocoder. Er ist in `requirements.txt` enthalten oder separat installierbar:
+
+```text
+pip install reverse_geocode
+```
+
+`setup_check` meldet `reverse_geocode_installed` und einen `location_albums`-Status.
 
 ## Empfohlener Ordner
 
@@ -141,10 +161,11 @@ Beispielregeln:
 | `list_albums` | Listet iCloud-Fotos-Alben | Nein |
 | `scan_album` | Liest Metadaten ohne Originaldownloads | Nein |
 | `download_photo_version` | Cached eine kleine Version lokal | Nein |
-| `prepare_photo_for_codex` | Bereitet ein Preview für KI-Review vor | Nein |
-| `prepare_batch_for_codex` | Bereitet einen kleinen Batch für KI-Review vor | Nein |
-| `analyze_photo` | Metadaten-basierte Analyse mit Album-Empfehlungen | Nein |
-| `curate_batch` | Analysiert einen Batch und speichert Vorschläge zur Prüfung | Nein |
+| `get_photo_image` | Gibt ein Foto als MCP-Bild-Block für Client-Vision zurück | Nein |
+| `prepare_photo_for_codex` | Gibt ein Foto (Bild-Block) + Metadaten/Ort zur Prüfung zurück | Nein |
+| `prepare_batch_for_codex` | Gibt einen kleinen Batch als Bild-Blöcke + Metadaten/Ort zurück | Nein |
+| `analyze_photo` | Reiner Metadaten-Fallback (kein Vision-Modell); Album-Empfehlungen | Nein |
+| `curate_batch` | Reiner Metadaten-Fallback-Batch; speichert Vorschläge | Nein |
 | `save_codex_proposal` | Speichert eine lokale Album-Entscheidung | Nein |
 | `review_proposals` | Zeigt gespeicherte Vorschläge | Nein |
 | `mark_proposals_reviewed` | Markiert Vorschläge lokal als approved/rejected | Nein |

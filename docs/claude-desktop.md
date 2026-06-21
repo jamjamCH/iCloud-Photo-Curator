@@ -86,6 +86,8 @@ For Linux, replace `/Users/YOUR_NAME` with `/home/YOUR_NAME`.
 | --- | --- |
 | Passwords | Stored in OS Keyring by `try_curator.py login`, not in Claude config |
 | 2FA | If a session expires, run `try_curator.py login` again or pass a fresh code through the MCP tool |
+| Vision | `prepare_batch_for_codex` / `get_photo_image` return photos as MCP image blocks, so Claude sees the pixels and sorts by content. No external vision API is used. |
+| Location | GPS is resolved offline to city/country via `reverse_geocode` (in `requirements.txt`) for place-based albums |
 | Writes | Experimental album writes are dry-run by default and require explicit env flag plus confirmations |
 | Packaging | `.mcpb` desktop extension packaging is a future release step |
 
