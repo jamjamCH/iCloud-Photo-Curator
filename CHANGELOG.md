@@ -11,6 +11,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `scripts/build_mcpb.py` to build a `.mcpb` bundle, and
   `scripts/mcpb_launch.py`, which bootstraps dependencies into a private venv
   on first launch so the bundle stays small and cross-platform.
+- Release workflow (`.github/workflows/release.yml`) that builds the `.mcpb`
+  bundle and attaches it to the GitHub Release when one is published.
 
 ### Changed
 - Rewrote the Claude Desktop and Codex setup guides (EN + DE) and the README
