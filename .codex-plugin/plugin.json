@@ -1,6 +1,6 @@
 {
   "name": "icloud-photo-curator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A local MCP server and Codex plugin for safe, AI-assisted iCloud Photos curation with local proposal review and experimental gated album writes.",
   "author": {
     "name": "iCloud Photo Curator contributors",
