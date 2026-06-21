@@ -1,12 +1,30 @@
-# Claude Desktop Lokale Installation
+# Claude Desktop einrichten (Schritt für Schritt)
 
-Dieses Projekt kann in Claude Desktop als lokaler stdio-MCP-Server laufen.
+Diese Anleitung verbindet **iCloud Photo Curator** mit Claude Desktop. Du brauchst nicht programmieren — nur kopieren, einfügen und den Schritten folgen.
 
-Anthropic dokumentiert aktuell zwei lokale Wege: Desktop Extensions für gepackte `.mcpb`-Installationen und lokale MCP-Server für direkte Entwicklung und Tests. Dieses Repository liefert aktuell einen lokalen stdio-MCP-Server; `.mcpb`-Packaging kann später ergänzt werden.
+## Was das für dich macht
 
-## Ordner Ablage
+Du sprichst mit Claude in normaler Sprache, z. B. *„Sortier meine letzten 10 iCloud-Fotos in Alben."* Claude schaut sich die echten Fotos an und schlägt dann Alben vor, je nach Inhalt — Essensfotos kommen in ein **Food**-Album, ein in Paris aufgenommenes Urlaubsfoto wird für ein **Paris**-Album vorgeschlagen, usw.
 
-Lege den entpackten Ordner hier ab:
+- Es **löscht nie** Fotos.
+- Standardmäßig macht es nur **Vorschläge**; deine Alben ändert es erst, wenn du ausdrücklich zustimmst.
+- Deine Fotos gehen an keine fremde Firma — das Anschauen übernimmt Claude (das du ohnehin nutzt).
+
+## Was du zuerst brauchst
+
+| Du brauchst | So bekommst du es |
+| --- | --- |
+| Einen Computer | Windows, macOS oder Linux |
+| Python 3.10 oder neuer | Von [python.org](https://www.python.org/downloads/) laden. Unter Windows beim Installieren **„Add Python to PATH"** anhaken. |
+| Claude Desktop | Die Desktop-App von Anthropic |
+| Eine Apple-ID | Die, auf der deine iCloud-Fotos liegen |
+| Diesen Projektordner | Auf der GitHub-Seite **Code → Download ZIP** klicken und entpacken |
+
+**Prüfen, ob Python da ist:** Terminal öffnen (macOS/Linux: *Terminal*; Windows: *PowerShell*) und `python --version` eingeben. Erscheint `Python 3.10` oder höher, passt es. Unter macOS musst du evtl. `python3` statt `python` schreiben.
+
+## Schritt 1 — Ordner an einen einfachen Ort legen
+
+Verschiebe den entpackten Ordner hierhin:
 
 | Plattform | Ordner |
 | --- | --- |
@@ -14,29 +32,42 @@ Lege den entpackten Ordner hier ab:
 | macOS | `~/plugins/icloud-photo-curator` |
 | Linux | `~/plugins/icloud-photo-curator` |
 
-## Bootstrap Und Login
+Falls der entpackte Ordner `icloud-photo-curator-main` heißt, benenne ihn in `icloud-photo-curator` um.
 
-Im Plugin-Ordner:
+## Schritt 2 — Installieren und anmelden
 
+Öffne ein Terminal **in diesem Ordner** (Rechtsklick auf den Ordner → *Im Terminal öffnen*, oder mit `cd` dorthin wechseln) und führe aus:
+
+**Windows (PowerShell):**
 ```powershell
-python scripts/bootstrap.py
-python scripts/try_curator.py login
+python scripts\bootstrap.py
+python scripts\try_curator.py login
 ```
 
-## Claude Desktop Config
+**macOS / Linux:**
+```bash
+python3 scripts/bootstrap.py
+python3 scripts/try_curator.py login
+```
 
-Bearbeite die MCP-Konfigurationsdatei von Claude Desktop für deine Plattform.
+Was passiert:
+- `bootstrap.py` legt einen eigenen Arbeitsbereich an (einen Ordner `.venv`) und installiert alles Nötige. **Erwartet:** es endet ohne roten Fehler.
+- `login` fragt nach deiner Apple-ID-E-Mail und deinem Passwort, danach meist nach einem **Apple-2FA-Code** (die 6 Ziffern, die auf deinem iPhone/Mac erscheinen). Tippe ihn ein. Dein Passwort wird im sicheren Schlüsselbund deines Betriebssystems gespeichert — **nie** in einer Textdatei.
+- **Erwartetes Ergebnis:** eine kurze Zusammenfassung, die mit `"logged_in": true` endet.
 
-| Plattform | Häufiger Config-Pfad |
+## Schritt 3 — Claude Desktop den Server bekannt machen
+
+Öffne die Konfigurationsdatei von Claude Desktop (lege sie an, falls sie fehlt):
+
+| Plattform | Konfigurationsdatei |
 | --- | --- |
 | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
 | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 | Linux | `~/.config/Claude/claude_desktop_config.json` |
 
-Nutze absolute Pfade. Windows-Pfade brauchen in JSON doppelte Backslashes.
+Füge den Block für dein System ein und **ersetze `YOUR_NAME`** durch deinen echten Benutzernamen. Nutze vollständige Pfade (Windows braucht doppelte Backslashes).
 
-### Windows Beispiel
-
+**Windows:**
 ```json
 {
   "mcpServers": {
@@ -53,8 +84,7 @@ Nutze absolute Pfade. Windows-Pfade brauchen in JSON doppelte Backslashes.
 }
 ```
 
-### macOS Oder Linux Beispiel
-
+**macOS / Linux** (unter Linux `/Users/YOUR_NAME` durch `/home/YOUR_NAME` ersetzen):
 ```json
 {
   "mcpServers": {
@@ -71,24 +101,33 @@ Nutze absolute Pfade. Windows-Pfade brauchen in JSON doppelte Backslashes.
 }
 ```
 
-Für Linux ersetze `/Users/YOUR_NAME` durch `/home/YOUR_NAME`.
+## Schritt 4 — Neu starten und prüfen
 
-## Neustart Und Prüfung
+1. Claude Desktop komplett beenden und neu öffnen.
+2. Connector-/Developer-Ansicht öffnen und prüfen, dass **icloud-photo-curator** als verbunden angezeigt wird.
+3. Bitte Claude im Chat, `setup_check` auszuführen. **Erwartet:** ein kleiner Bericht mit `"vision_mode": "client_native_mcp_image"`.
 
-1. Claude Desktop neu starten.
-2. Connector- oder Developer-Statusansicht öffnen.
-3. Prüfen, ob `icloud-photo-curator` verbunden ist.
-4. Claude bitten, `setup_check` auszuführen oder iCloud-Alben zu listen.
+## Schritt 5 — Ausprobieren
 
-## Hinweise
+Tippe Claude z. B. das hier:
 
-| Thema | Detail |
+> „Scanne meine iCloud-Alben und fasse sie zusammen."
+
+> „Bereite meine nächsten 10 Fotos zur Prüfung vor und schlag Alben vor."
+
+Claude fragt, ob du *nur scannen*, *scannen und vorschlagen* oder *genehmigte Änderungen anwenden* willst. Fang mit Scannen oder Vorschlagen an — in iCloud wird nichts geändert, bis du es sagst.
+
+## Verbindet nicht? Schnelle Lösungen
+
+| Problem | Lösung |
 | --- | --- |
-| Passwörter | Werden durch `try_curator.py login` im OS-Keyring gespeichert, nicht in Claude Config |
-| 2FA | Wenn die Session abläuft, `try_curator.py login` erneut ausführen oder frischen Code über MCP nutzen |
-| Vision | `prepare_batch_for_codex` / `get_photo_image` geben Fotos als MCP-Bild-Blöcke zurück, sodass Claude die Pixel sieht und nach Inhalt sortiert. Keine externe Vision-API. |
-| Ort | GPS wird offline via `reverse_geocode` (in `requirements.txt`) zu Stadt/Land aufgelöst, für ortsbasierte Alben |
-| Schreibzugriffe | Experimentelle Album-Writes sind standardmäßig Dry-Run und brauchen explizites Env-Flag plus Bestätigungen |
-| Packaging | `.mcpb` Desktop-Extension-Packaging ist ein späterer Release-Schritt |
+| Server nicht in Claude sichtbar | Prüfe die JSON-Pfade und ob du Claude wirklich komplett neu gestartet hast. |
+| `python` nicht gefunden | Nutze `python3` (macOS/Linux) oder installiere Python neu mit „Add to PATH" (Windows). |
+| Fragt später erneut nach 2FA | Sessions laufen ab — führe einfach `python scripts/try_curator.py login` erneut aus. |
+| Fehler „No iCloud session" | Führe den `login`-Schritt (Schritt 2) aus, bevor du Claude scannen lässt. |
 
-Für Write-Workflows sollte Claude zuerst `write_capabilities` aufrufen, den Dry-Run-Plan zeigen und erst danach genehmigte Vorschläge anwenden, wenn experimentelle Writes bewusst aktiviert wurden. Das Plugin implementiert keine Foto-Löschung.
+## Gut zu wissen
+
+- **Vision:** Die Tools `prepare_batch_for_codex` und `get_photo_image` schicken das Foto als Bild an Claude, sodass Claude nach dem tatsächlichen Bildinhalt sortiert. Es wird kein externer Vision-Dienst genutzt.
+- **Ortsalben:** GPS wird **offline** in Stadt/Land umgewandelt (über `reverse_geocode`, automatisch installiert), damit Reisen nach Ort gruppiert werden.
+- **Sicherheit:** Album-Änderungen sind eine experimentelle, freiwillige Funktion. Sie bleibt in der Vorschau („Dry-Run"), bis du sie aktivierst und bestätigst. Fotos werden nie gelöscht.
