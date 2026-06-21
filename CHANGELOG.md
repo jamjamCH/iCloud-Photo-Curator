@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Experimental Claude Desktop extension packaging: `manifest.json`,
+  `scripts/build_mcpb.py` to build a `.mcpb` bundle, and
+  `scripts/mcpb_launch.py`, which bootstraps dependencies into a private venv
+  on first launch so the bundle stays small and cross-platform.
+
+### Changed
+- Rewrote the Claude Desktop and Codex setup guides (EN + DE) and the README
+  intros/quick start to be beginner-friendly: plain-language "what it does",
+  prerequisites, expected results per step, correct shell blocks, an example
+  prompt, and a troubleshooting section.
+
 ## [0.2.0] - 2026-06-21
 
 ### Added

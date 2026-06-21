@@ -1,0 +1,42 @@
+{
+  "manifest_version": "0.1",
+  "name": "icloud-photo-curator",
+  "display_name": "iCloud Photo Curator",
+  "version": "0.2.0",
+  "description": "Curate iCloud Photos with client-native vision, local proposals, and gated album writes.",
+  "long_description": "Connects iCloud Photos to Claude Desktop through a local MCP server. It reads albums and metadata, returns photos as MCP image blocks so the connected model sorts by visible content (food, documents, landscapes), resolves GPS to a place name offline for location albums, and saves album proposals locally. Album creation and adding photos to albums are an experimental, gated, dry-run-by-default feature. The plugin never deletes photos.",
+  "author": {
+    "name": "iCloud Photo Curator contributors",
+    "url": "https://github.com/jamjamCH/iCloud-Photo-Curator"
+  },
+  "homepage": "https://github.com/jamjamCH/iCloud-Photo-Curator",
+  "documentation": "https://github.com/jamjamCH/iCloud-Photo-Curator/blob/main/docs/claude-desktop.md",
+  "license": "MIT",
+  "keywords": ["icloud", "photos", "mcp", "album-curation", "claude"],
+  "server": {
+    "type": "python",
+    "entry_point": "scripts/mcpb_launch.py",
+    "mcp_config": {
+      "command": "python",
+      "args": ["${__dirname}/scripts/mcpb_launch.py"],
+      "env": {
+        "ICLOUD_PHOTO_CURATOR_STATE_DIR": "${HOME}/.icloud-photo-curator",
+        "ICLOUD_PHOTO_CURATOR_APPLE_ID": "${user_config.apple_id}"
+      }
+    }
+  },
+  "user_config": {
+    "apple_id": {
+      "type": "string",
+      "title": "Apple ID email (optional)",
+      "description": "Your iCloud Apple ID. You can also leave this blank and set it during the one-time `try_curator.py login`. Your password is never stored here; it goes into the OS keychain.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  }
+}
